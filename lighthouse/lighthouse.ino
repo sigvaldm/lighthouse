@@ -3,6 +3,7 @@
 #include <TimerOne.h>
 #include <Rotary.h>
 #include <Debouncer.h>
+#include <EEPROM.h>
 
 // Current LED bulb is 1W. Circuitry supports 2W.
 
@@ -12,10 +13,13 @@ const int encPinA = 2;
 const int encPinB = 3;
 const int buttonPin = 4;
 
-
+// State variables
+volatile int state = 0;			// 0=off, 1=blinking program, 2=on
 volatile int maxBr = 1023;		// Peak brightness [0,1023]. Not linear.
 volatile float percMaxBr = 1;	// Peak brighness linearized [0,1]. Used by incr() and decr().
-volatile int state = 1;			// 0=off, 1=blinking program, 2=on
+
+// EEPROM adresses
+const int stateAdr = 0;
 
 // Increase/decrease brightness
 void incr();
@@ -49,12 +53,14 @@ void setup(){
 	pinMode(encPinA, INPUT_PULLUP); 
 	pinMode(encPinB, INPUT_PULLUP);
 	pinMode(buttonPin, INPUT_PULLUP);
-	
+
+    EEPROM.get(stateAdr, state);
+    updateStateVars();
+
 	PciManager.registerListener(buttonPin, &button);
 	
 	taskUpdateLed.periodMicros=d;	// Hard-set period to get microsecond resolution
 	SoftTimer.add(&taskUpdateLed);
-	SoftTimer.add(&taskChangeLed);
 
 }
 
@@ -123,6 +129,16 @@ void onRotate(short direction, Rotary* rotary) {
 void onButtonPress(){
 	state++;
 	if(state>2) state=0;
+    EEPROM.put(stateAdr, state);
+    updateStateVars();
+}
+
+void onButtonRelease(unsigned long pressTime){
+}
+
+void updateStateVars(){
+
+    if(state<0 || state>2) state=0;
 	
 	if(state==0){
 		increment = 0;
@@ -136,6 +152,4 @@ void onButtonPress(){
 		SoftTimer.remove(&taskChangeLed);
 		m=N;
 	}
-}
-void onButtonRelease(unsigned long pressTime){
 }
