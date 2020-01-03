@@ -18,8 +18,10 @@ volatile int state = 0;			// 0=off, 1=blinking program, 2=on
 volatile int maxBr = 1023;		// Peak brightness [0,1023]. Not linear.
 volatile float percMaxBr = 1;	// Peak brighness linearized [0,1]. Used by incr() and decr().
 
-// EEPROM adresses
+// EEPROM adresses for state variables
 const int stateAdr = 0;
+const int maxBrAdr = stateAdr+sizeof(int);
+const int percMaxBrAdr = maxBrAdr+sizeof(int);
 
 // Increase/decrease brightness
 void incr();
@@ -56,6 +58,14 @@ void setup(){
 
     EEPROM.get(stateAdr, state);
     updateStateVars();
+
+    EEPROM.get(maxBrAdr, maxBr);
+    EEPROM.get(percMaxBrAdr, percMaxBr);
+
+    if(maxBr<0 || maxBr>1023 || percMaxBr<0 || percMaxBr>1){
+        maxBr = 1023;
+        percMaxBr = 1;
+    }
 
 	PciManager.registerListener(buttonPin, &button);
 	
@@ -110,11 +120,15 @@ void changeLed(Task *me){
 void decr(){
 	if(percMaxBr>0) percMaxBr -= 0.05;
 	maxBr = 1023*pow(percMaxBr,2);
+    EEPROM.put(maxBrAdr, maxBr);
+    EEPROM.put(percMaxBrAdr, percMaxBr);
 }
 
 void incr(){
 	if(percMaxBr<1) percMaxBr += 0.05;
 	maxBr = 1023*pow(percMaxBr,2);
+    EEPROM.put(maxBrAdr, maxBr);
+    EEPROM.put(percMaxBrAdr, percMaxBr);
 }
 
 void onRotate(short direction, Rotary* rotary) {
